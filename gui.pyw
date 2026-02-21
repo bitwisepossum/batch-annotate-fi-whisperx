@@ -201,6 +201,19 @@ class App:
         self._log("--- cancelling ---")
 
     def _run_batch(self, audio_files, output_dir):
+        try:
+            self._run_batch_inner(audio_files, output_dir)
+        except FileNotFoundError:
+            self.root.after(0, self._log,
+                            "\nError: whisperx not found. "
+                            "Make sure whisperx and ffmpeg are installed and on PATH.")
+        except Exception:
+            self.root.after(0, self._log, f"\nError:\n{traceback.format_exc()}")
+        finally:
+            self.process = None
+            self.root.after(0, self._finish)
+
+    def _run_batch_inner(self, audio_files, output_dir):
         model = self.model_var.get()
         align_model = self.align_var.get()
         prompt = self.prompt_var.get().strip() or None
@@ -265,9 +278,6 @@ class App:
             self.root.after(0, self._log,
                             f"\nDone — {success_count}/{total} succeeded "
                             f"in {format_duration(total_time)}")
-
-        self.process = None
-        self.root.after(0, self._finish)
 
     def _update_progress(self, current, total):
         pct = (current / total) * 100 if total > 0 else 0

@@ -3,8 +3,9 @@
 # all processing happens locally — no data leaves your machine
 
 import tkinter as tk
-from tkinter import ttk, filedialog, scrolledtext
+from tkinter import ttk, filedialog, scrolledtext, messagebox
 import threading
+import traceback
 import time
 from pathlib import Path
 
@@ -286,4 +287,8 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except Exception:
+        # .pyw has no console, so show errors in a dialog
+        messagebox.showerror("Error", traceback.format_exc())

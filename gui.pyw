@@ -1,0 +1,289 @@
+#!/usr/bin/env python3
+# tkinter gui for batch whisperx transcription
+# all processing happens locally — no data leaves your machine
+
+import tkinter as tk
+from tkinter import ttk, filedialog, scrolledtext
+import threading
+import time
+from pathlib import Path
+
+from core import (
+    find_audio_files, get_audio_duration, format_duration,
+    transcribe_file_stream, WHISPER_MODELS, DEFAULT_ALIGN_MODEL,
+    AUDIO_EXTENSIONS,
+)
+
+
+class App:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Batch WhisperX — Finnish Transcription")
+        self.root.minsize(600, 500)
+
+        self.process = None  # current whisperx subprocess
+        self.running = False
+        self.cancel_requested = False
+
+        self._build_ui()
+
+    def _build_ui(self):
+        pad = {'padx': 6, 'pady': 3}
+
+        # --- input/output section ---
+        io_frame = ttk.LabelFrame(self.root, text="Files", padding=8)
+        io_frame.pack(fill='x', padx=8, pady=(8, 4))
+
+        ttk.Label(io_frame, text="Input:").grid(row=0, column=0, sticky='w')
+        self.input_var = tk.StringVar()
+        ttk.Entry(io_frame, textvariable=self.input_var).grid(row=0, column=1, sticky='ew', **pad)
+        ttk.Button(io_frame, text="File…", width=6,
+                   command=self._browse_file).grid(row=0, column=2, **pad)
+        ttk.Button(io_frame, text="Dir…", width=6,
+                   command=self._browse_input_dir).grid(row=0, column=3, **pad)
+
+        ttk.Label(io_frame, text="Output:").grid(row=1, column=0, sticky='w')
+        self.output_var = tk.StringVar()
+        ttk.Entry(io_frame, textvariable=self.output_var).grid(row=1, column=1, sticky='ew', **pad)
+        ttk.Button(io_frame, text="Dir…", width=6,
+                   command=self._browse_output_dir).grid(row=1, column=2, **pad)
+
+        io_frame.columnconfigure(1, weight=1)
+
+        # --- settings section ---
+        settings_frame = ttk.LabelFrame(self.root, text="Settings", padding=8)
+        settings_frame.pack(fill='x', padx=8, pady=4)
+
+        ttk.Label(settings_frame, text="Model:").grid(row=0, column=0, sticky='w')
+        self.model_var = tk.StringVar(value='large-v3')
+        ttk.OptionMenu(settings_frame, self.model_var, 'large-v3', *WHISPER_MODELS
+                       ).grid(row=0, column=1, sticky='w', **pad)
+
+        ttk.Label(settings_frame, text="Device:").grid(row=0, column=2, sticky='w')
+        self.device_var = tk.StringVar(value='cpu')
+        ttk.OptionMenu(settings_frame, self.device_var, 'cpu', 'cpu', 'cuda'
+                        ).grid(row=0, column=3, sticky='w', **pad)
+
+        ttk.Label(settings_frame, text="Threads:").grid(row=1, column=0, sticky='w')
+        self.threads_var = tk.IntVar(value=2)
+        ttk.Spinbox(settings_frame, from_=1, to=16, width=4,
+                     textvariable=self.threads_var).grid(row=1, column=1, sticky='w', **pad)
+
+        ttk.Label(settings_frame, text="Align model:").grid(row=2, column=0, sticky='w')
+        self.align_var = tk.StringVar(value=DEFAULT_ALIGN_MODEL)
+        ttk.Entry(settings_frame, textvariable=self.align_var
+                  ).grid(row=2, column=1, columnspan=3, sticky='ew', **pad)
+
+        ttk.Label(settings_frame, text="Prompt:").grid(row=3, column=0, sticky='w')
+        self.prompt_var = tk.StringVar()
+        ttk.Entry(settings_frame, textvariable=self.prompt_var
+                  ).grid(row=3, column=1, columnspan=3, sticky='ew', **pad)
+
+        settings_frame.columnconfigure(1, weight=1)
+        settings_frame.columnconfigure(3, weight=1)
+
+        # --- start/cancel button ---
+        self.start_btn = ttk.Button(self.root, text="Start", command=self._toggle_run)
+        self.start_btn.pack(pady=6)
+
+        # --- log area ---
+        log_frame = ttk.LabelFrame(self.root, text="Log", padding=4)
+        log_frame.pack(fill='both', expand=True, padx=8, pady=(4, 4))
+
+        self.log = scrolledtext.ScrolledText(log_frame, height=12, state='disabled',
+                                              wrap='word', font=('Consolas', 9))
+        self.log.pack(fill='both', expand=True)
+
+        # --- progress bar ---
+        progress_frame = ttk.Frame(self.root)
+        progress_frame.pack(fill='x', padx=8, pady=(0, 8))
+
+        self.progress_var = tk.DoubleVar()
+        self.progress_bar = ttk.Progressbar(progress_frame, variable=self.progress_var,
+                                             maximum=100)
+        self.progress_bar.pack(side='left', fill='x', expand=True)
+
+        self.progress_label = ttk.Label(progress_frame, text="")
+        self.progress_label.pack(side='right', padx=(8, 0))
+
+    # --- file pickers ---
+
+    def _browse_file(self):
+        # build filter string from supported extensions
+        exts = ' '.join(f'*{e}' for e in sorted(AUDIO_EXTENSIONS))
+        path = filedialog.askopenfilename(
+            title="Select audio file",
+            filetypes=[("Audio files", exts), ("All files", "*.*")]
+        )
+        if path:
+            self.input_var.set(path)
+
+    def _browse_input_dir(self):
+        path = filedialog.askdirectory(title="Select input directory")
+        if path:
+            self.input_var.set(path)
+
+    def _browse_output_dir(self):
+        path = filedialog.askdirectory(title="Select output directory")
+        if path:
+            self.output_var.set(path)
+
+    # --- logging ---
+
+    def _log(self, text):
+        self.log.configure(state='normal')
+        self.log.insert('end', text + '\n')
+        self.log.see('end')
+        self.log.configure(state='disabled')
+
+    # --- run/cancel ---
+
+    def _toggle_run(self):
+        if self.running:
+            self._cancel()
+        else:
+            self._start()
+
+    def _set_controls_state(self, state):
+        # enable/disable input fields while running
+        for child in self.root.winfo_children():
+            if isinstance(child, ttk.LabelFrame):
+                for widget in child.winfo_children():
+                    try:
+                        widget.configure(state=state)
+                    except tk.TclError:
+                        pass
+
+    def _start(self):
+        input_path = self.input_var.get().strip()
+        if not input_path:
+            self._log("Error: no input path selected")
+            return
+
+        input_path = Path(input_path)
+        if not input_path.exists():
+            self._log(f"Error: path not found: {input_path}")
+            return
+
+        audio_files = find_audio_files(input_path)
+        if not audio_files:
+            self._log("Error: no audio files found")
+            return
+
+        # output dir defaults to input's parent
+        output_str = self.output_var.get().strip()
+        output_dir = Path(output_str) if output_str else input_path.parent
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        self.running = True
+        self.cancel_requested = False
+        self.start_btn.configure(text="Cancel")
+        self._set_controls_state('disabled')
+
+        # clear log
+        self.log.configure(state='normal')
+        self.log.delete('1.0', 'end')
+        self.log.configure(state='disabled')
+
+        # run in background thread
+        thread = threading.Thread(
+            target=self._run_batch,
+            args=(audio_files, output_dir),
+            daemon=True,
+        )
+        thread.start()
+
+    def _cancel(self):
+        self.cancel_requested = True
+        if self.process:
+            self.process.terminate()
+        self._log("--- cancelling ---")
+
+    def _run_batch(self, audio_files, output_dir):
+        model = self.model_var.get()
+        align_model = self.align_var.get()
+        prompt = self.prompt_var.get().strip() or None
+        device = self.device_var.get()
+        threads = self.threads_var.get()
+        total = len(audio_files)
+
+        self.root.after(0, self._log,
+                        f"Processing {total} file(s) → {output_dir}")
+        self.root.after(0, self._log, "=" * 50)
+
+        start_time = time.time()
+        success_count = 0
+
+        for idx, audio_file in enumerate(audio_files, 1):
+            if self.cancel_requested:
+                break
+
+            duration = get_audio_duration(audio_file)
+            dur_str = format_duration(duration) if duration > 0 else "?"
+
+            self.root.after(0, self._log,
+                            f"\n[{idx}/{total}] {audio_file.name} ({dur_str})")
+
+            # update progress bar
+            self.root.after(0, self._update_progress, idx - 1, total)
+
+            file_start = time.time()
+
+            self.process = transcribe_file_stream(
+                audio_file, output_dir, model, align_model,
+                prompt, device, threads
+            )
+
+            # read output line by line
+            for line in self.process.stdout:
+                line = line.rstrip('\n')
+                if line:
+                    self.root.after(0, self._log, f"  {line}")
+
+            self.process.wait()
+            file_time = time.time() - file_start
+
+            if self.cancel_requested:
+                break
+
+            if self.process.returncode == 0:
+                success_count += 1
+                self.root.after(0, self._log,
+                                f"✓ Done in {format_duration(file_time)}")
+            else:
+                self.root.after(0, self._log, "✗ Failed")
+
+        total_time = time.time() - start_time
+
+        # final progress
+        self.root.after(0, self._update_progress, total, total)
+
+        if self.cancel_requested:
+            self.root.after(0, self._log, f"\nCancelled. {success_count}/{total} completed.")
+        else:
+            self.root.after(0, self._log,
+                            f"\nDone — {success_count}/{total} succeeded "
+                            f"in {format_duration(total_time)}")
+
+        self.process = None
+        self.root.after(0, self._finish)
+
+    def _update_progress(self, current, total):
+        pct = (current / total) * 100 if total > 0 else 0
+        self.progress_var.set(pct)
+        self.progress_label.configure(text=f"{current}/{total} files")
+
+    def _finish(self):
+        self.running = False
+        self.start_btn.configure(text="Start")
+        self._set_controls_state('normal')
+
+
+def main():
+    root = tk.Tk()
+    App(root)
+    root.mainloop()
+
+
+if __name__ == '__main__':
+    main()

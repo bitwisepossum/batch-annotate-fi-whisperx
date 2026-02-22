@@ -1,6 +1,7 @@
 # shared logic for batch whisperx transcription
 # used by both CLI (batch-annotate-fi-whisperx.py) and GUI (gui.pyw)
 
+import os
 import subprocess
 from pathlib import Path
 
@@ -9,6 +10,14 @@ AUDIO_EXTENSIONS = {'.wav', '.mp3', '.m4a', '.flac', '.ogg', '.opus'}
 WHISPER_MODELS = ['large-v3', 'large-v2', 'medium', 'small', 'base', 'tiny']
 
 DEFAULT_ALIGN_MODEL = 'Finnish-NLP/wav2vec2-xlsr-1b-finnish-lm-v2'
+
+
+# set or unset HF_HUB_OFFLINE env var
+def set_offline_mode(offline):
+    if offline:
+        os.environ['HF_HUB_OFFLINE'] = '1'
+    else:
+        os.environ.pop('HF_HUB_OFFLINE', None)
 
 
 # get audio length in seconds using ffprobe

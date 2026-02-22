@@ -9,7 +9,7 @@ from rich.table import Table
 
 from core import (
     find_audio_files, get_audio_duration, format_duration,
-    transcribe_file, DEFAULT_ALIGN_MODEL,
+    transcribe_file, set_offline_mode, DEFAULT_ALIGN_MODEL,
 )
 
 console = Console()
@@ -34,8 +34,11 @@ def main():
         help='Initial prompt for domain-specific vocabulary'
     )
     parser.add_argument('--device', choices=['cuda', 'cpu'], default='cpu')
+    parser.add_argument('--offline', action='store_true', help='Use only cached models, no downloads')
 
     args = parser.parse_args()
+
+    set_offline_mode(args.offline)
 
     if not args.input.exists():
         console.print(f"[red]Error: Path not found: {args.input}[/red]")

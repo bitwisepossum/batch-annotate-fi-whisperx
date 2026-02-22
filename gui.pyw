@@ -3,7 +3,6 @@
 
 import tkinter as tk
 from tkinter import ttk, filedialog, scrolledtext, messagebox
-import os
 import threading
 import traceback
 import time
@@ -11,8 +10,8 @@ from pathlib import Path
 
 from core import (
     find_audio_files, get_audio_duration, format_duration,
-    transcribe_file_stream, WHISPER_MODELS, DEFAULT_ALIGN_MODEL,
-    AUDIO_EXTENSIONS,
+    transcribe_file_stream, set_offline_mode,
+    WHISPER_MODELS, DEFAULT_ALIGN_MODEL, AUDIO_EXTENSIONS,
 )
 
 
@@ -234,11 +233,7 @@ class App:
         threads = self.threads_var.get()
         total = len(audio_files)
 
-        # set HF_HUB_OFFLINE so whisperx uses only cached models
-        if self.offline_var.get():
-            os.environ['HF_HUB_OFFLINE'] = '1'
-        else:
-            os.environ.pop('HF_HUB_OFFLINE', None)
+        set_offline_mode(self.offline_var.get())
 
         self.root.after(0, self._log,
                         f"Processing {total} file(s) → {output_dir}")

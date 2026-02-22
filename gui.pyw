@@ -10,7 +10,7 @@ from pathlib import Path
 
 from core import (
     find_audio_files, get_audio_duration, format_duration,
-    transcribe_file_stream, set_offline_mode,
+    transcribe_file_stream, set_offline_mode, save_settings_log,
     WHISPER_MODELS, DEFAULT_ALIGN_MODEL, AUDIO_EXTENSIONS,
 )
 
@@ -234,6 +234,10 @@ class App:
         total = len(audio_files)
 
         set_offline_mode(self.offline_var.get())
+
+        save_settings_log(output_dir, model, align_model, device, threads,
+                          prompt, self.offline_var.get(),
+                          total, Path(self.input_var.get().strip()))
 
         self.root.after(0, self._log,
                         f"Processing {total} file(s) → {output_dir}")

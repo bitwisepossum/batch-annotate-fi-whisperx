@@ -3,6 +3,7 @@
 
 import os
 import subprocess
+from datetime import datetime
 from pathlib import Path
 
 AUDIO_EXTENSIONS = {'.wav', '.mp3', '.m4a', '.flac', '.ogg', '.opus'}
@@ -98,3 +99,45 @@ def transcribe_file_stream(audio_path, output_dir, model, align_model, prompt, d
         bufsize=1,
     )
     return process
+
+
+# get whisperx version string
+def get_whisperx_version():
+    try:
+        result = subprocess.run(
+            ['whisperx', '--version'],
+            capture_output=True, text=True, timeout=5
+        )
+        ver = result.stdout.strip() or result.stderr.strip()
+        return ver if ver else 'unknown'
+    except:
+        return 'unknown'
+
+
+# save transcription settings to a text file in the output directory
+# overwrites on each run — only latest settings matter
+def save_settings_log(output_dir, model, align_model, device, threads,
+                      prompt, offline, num_files, input_path):
+    lines = [
+        f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+        f"whisperx version: {get_whisperx_version()}",
+        "",
+        f"Model: {model}",
+        f"Alignment model: {align_model}",
+        f"Device: {device}",
+        f"Threads: {threads}",
+        f"Compute type: int8",
+        "",
+        f"VAD method: silero",
+        f"VAD onset: 0.2",
+        f"VAD offset: 0.15",
+        f"Chunk size: 10",
+        "",
+        f"Prompt: {prompt or '(none)'}",
+        f"Offline mode: {offline}",
+        "",
+        f"Input: {input_path}",
+        f"Files: {num_files}",
+    ]
+    path = Path(output_dir) / 'transcription_settings.txt'
+    path.write_text('\n'.join(lines) + '\n', encoding='utf-8')

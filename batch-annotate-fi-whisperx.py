@@ -9,7 +9,8 @@ from rich.table import Table
 
 from core import (
     find_audio_files, get_audio_duration, format_duration,
-    transcribe_file, set_offline_mode, DEFAULT_ALIGN_MODEL,
+    transcribe_file, set_offline_mode, save_settings_log,
+    DEFAULT_ALIGN_MODEL,
 )
 
 console = Console()
@@ -52,6 +53,10 @@ def main():
     # default output to same dir as input
     output_dir = args.output_dir or args.input.parent
     output_dir.mkdir(parents=True, exist_ok=True)
+
+    save_settings_log(output_dir, args.model, args.align_model, args.device,
+                       args.threads, args.prompt, args.offline,
+                       len(audio_files), args.input)
 
     console.print(f"\n[bold cyan]Batch WhisperX with Finnish Alignment[/bold cyan]")
     console.print(f"Whisper model: {args.model}")

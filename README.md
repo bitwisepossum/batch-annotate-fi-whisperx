@@ -11,6 +11,7 @@ Batch transcribe Finnish audio files with WhisperX and forced alignment. Can be 
 - Supports wav, mp3, m4a, flac, ogg, opus
 - Can be fully offline after first run
 - Summary table with duration, status, and processing time per file
+- GUI (`gui.pyw`) works by double-clicking on Windows
 
 ## Requirements
 
@@ -48,6 +49,12 @@ You might see some connection errors or warnings when running offline (e.g. from
 You might also see a `torchcodec` error about `libtorchcodec` failing to load. This doesn't affect anything, audio is loaded through `torchaudio`. If it bothers you, install a compatible version (e.g. `pip install torchcodec==0.7` for PyTorch 2.8).
 
 ## Usage
+
+### GUI
+
+Double-click `gui.pyw` or run `python gui.pyw`. On Windows it opens without a command line window.
+
+### CLI
 
 Single file:
 

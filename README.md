@@ -38,7 +38,7 @@ pip install whisperx rich
 
 First run downloads models (needs internet). After that everything works offline.
 
-For offline usage, set:
+For offline usage, use `--offline` flag or the checkbox in GUI. You can also set the env var manually:
 
 ```bash
 export HF_HUB_OFFLINE=1
@@ -91,6 +91,9 @@ python batch-annotate-fi-whisperx.py ./audio/ --device cuda
 | `-t`, `--threads` | CPU threads | `2` |
 | `-p`, `--prompt` | Initial prompt for domain vocabulary | None |
 | `--device` | `cuda` or `cpu` | `cpu` |
+| `--offline` | Use only cached models, no downloads (run once online first) | off |
+
+The GUI has the same option as a checkbox.
 
 ### Output
 

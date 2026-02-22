@@ -153,12 +153,12 @@ class App:
                 entry.configure(style='Placeholder.TEntry')
                 entry.insert(0, placeholder)
 
-        def _on_focus_in(e):
+        def _on_focus_in(_e):
             if entry.cget('style') == 'Placeholder.TEntry':
                 entry.delete(0, 'end')
                 entry.configure(style='TEntry')
 
-        def _on_focus_out(e):
+        def _on_focus_out(_e):
             _show()
 
         entry.bind('<FocusIn>', _on_focus_in)

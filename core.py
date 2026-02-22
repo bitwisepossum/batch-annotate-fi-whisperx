@@ -30,7 +30,7 @@ def get_audio_duration(audio_path):
             capture_output=True, text=True, timeout=5
         )
         return float(result.stdout.strip())
-    except:
+    except Exception:
         return 0
 
 
@@ -38,10 +38,9 @@ def get_audio_duration(audio_path):
 def format_duration(seconds):
     if seconds < 60:
         return f"{int(seconds)}s"
-    elif seconds < 3600:
+    if seconds < 3600:
         return f"{int(seconds // 60)}m {int(seconds % 60)}s"
-    else:
-        return f"{int(seconds // 3600)}h {int((seconds % 3600) // 60)}m"
+    return f"{int(seconds // 3600)}h {int((seconds % 3600) // 60)}m"
 
 
 # collect audio files from path (single file or whole directory)
@@ -49,7 +48,7 @@ def find_audio_files(input_path):
     input_path = Path(input_path)
     if input_path.is_file():
         return [input_path]
-    elif input_path.is_dir():
+    if input_path.is_dir():
         files = []
         for ext in AUDIO_EXTENSIONS:
             files.extend(sorted(input_path.glob(f'*{ext}')))
@@ -110,7 +109,7 @@ def get_whisperx_version():
         )
         ver = result.stdout.strip() or result.stderr.strip()
         return ver if ver else 'unknown'
-    except:
+    except Exception:
         return 'unknown'
 
 
@@ -126,12 +125,12 @@ def save_settings_log(output_dir, model, align_model, device, threads,
         f"Alignment model: {align_model}",
         f"Device: {device}",
         f"Threads: {threads}",
-        f"Compute type: int8",
+        "Compute type: int8",
         "",
-        f"VAD method: silero",
-        f"VAD onset: 0.2",
-        f"VAD offset: 0.15",
-        f"Chunk size: 10",
+        "VAD method: silero",
+        "VAD onset: 0.2",
+        "VAD offset: 0.15",
+        "Chunk size: 10",
         "",
         f"Prompt: {prompt or '(none)'}",
         f"Offline mode: {offline}",

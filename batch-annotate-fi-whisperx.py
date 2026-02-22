@@ -22,7 +22,8 @@ def main():
     )
     parser.add_argument('input', type=Path, help='Input file or directory')
     parser.add_argument('-o', '--output-dir', type=Path, help='Output directory')
-    parser.add_argument('-m', '--model', default='large-v3', help='Whisper model (default: large-v3)')
+    parser.add_argument('-m', '--model', default='large-v3',
+                        help='Whisper model (default: large-v3)')
     parser.add_argument(
         '--align-model',
         default=DEFAULT_ALIGN_MODEL,
@@ -35,7 +36,8 @@ def main():
         help='Initial prompt for domain-specific vocabulary'
     )
     parser.add_argument('--device', choices=['cuda', 'cpu'], default='cpu')
-    parser.add_argument('--offline', action='store_true', help='Use only cached models, no downloads')
+    parser.add_argument('--offline', action='store_true',
+                        help='Use only cached models, no downloads')
 
     args = parser.parse_args()
 
@@ -58,7 +60,7 @@ def main():
                        args.threads, args.prompt, args.offline,
                        len(audio_files), args.input)
 
-    console.print(f"\n[bold cyan]Batch WhisperX with Finnish Alignment[/bold cyan]")
+    console.print("\n[bold cyan]Batch WhisperX with Finnish Alignment[/bold cyan]")
     console.print(f"Whisper model: {args.model}")
     console.print(f"Alignment model: {args.align_model}")
     console.print(f"Device: {args.device} | Threads: {args.threads}")
@@ -94,7 +96,7 @@ def main():
         if success:
             console.print(f"[green]✓ Complete[/green] in {format_duration(file_time)}")
         else:
-            console.print(f"[red]✗ Failed[/red]")
+            console.print("[red]✗ Failed[/red]")
 
     total_time = time.time() - start_time
 

@@ -45,7 +45,10 @@ class App:
 
         ttk.Label(io_frame, text="Output:").grid(row=1, column=0, sticky='w')
         self.output_var = tk.StringVar()
-        ttk.Entry(io_frame, textvariable=self.output_var).grid(row=1, column=1, sticky='ew', **pad)
+        self.output_entry = ttk.Entry(io_frame, textvariable=self.output_var)
+        self.output_entry.grid(row=1, column=1, sticky='ew', **pad)
+        self._setup_placeholder(self.output_entry, self.output_var,
+                                "Same as input directory")
         ttk.Button(io_frame, text="Dir…", width=6,
                    command=self._browse_output_dir).grid(row=1, column=2, **pad)
 
@@ -135,7 +138,32 @@ class App:
     def _browse_output_dir(self):
         path = filedialog.askdirectory(title="Select output directory")
         if path:
+            self.output_entry.configure(style='TEntry')
             self.output_var.set(path)
+
+    # --- placeholder text for entry fields ---
+
+    def _setup_placeholder(self, entry, var, placeholder):
+        style = ttk.Style()
+        style.map('Placeholder.TEntry',
+                  foreground=[('focus', 'grey'), ('!focus', 'grey')])
+
+        def _show():
+            if not var.get():
+                entry.configure(style='Placeholder.TEntry')
+                entry.insert(0, placeholder)
+
+        def _on_focus_in(e):
+            if entry.cget('style') == 'Placeholder.TEntry':
+                entry.delete(0, 'end')
+                entry.configure(style='TEntry')
+
+        def _on_focus_out(e):
+            _show()
+
+        entry.bind('<FocusIn>', _on_focus_in)
+        entry.bind('<FocusOut>', _on_focus_out)
+        _show()
 
     # --- logging ---
 
@@ -180,7 +208,8 @@ class App:
             return
 
         # output dir defaults to input's parent
-        output_str = self.output_var.get().strip()
+        is_placeholder = self.output_entry.cget('style') == 'Placeholder.TEntry'
+        output_str = '' if is_placeholder else self.output_var.get().strip()
         output_dir = Path(output_str) if output_str else input_path.parent
         output_dir.mkdir(parents=True, exist_ok=True)
 

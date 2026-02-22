@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 # tkinter gui for batch whisperx transcription
-# all processing happens locally — no data leaves your machine
 
 import tkinter as tk
 from tkinter import ttk, filedialog, scrolledtext, messagebox
+import os
 import threading
 import traceback
 import time
@@ -70,6 +70,11 @@ class App:
         self.threads_var = tk.IntVar(value=2)
         ttk.Spinbox(settings_frame, from_=1, to=16, width=4,
                      textvariable=self.threads_var).grid(row=1, column=1, sticky='w', **pad)
+
+        self.offline_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(settings_frame, text="Offline mode",
+                         variable=self.offline_var
+                         ).grid(row=1, column=2, columnspan=2, sticky='w', **pad)
 
         ttk.Label(settings_frame, text="Align model:").grid(row=2, column=0, sticky='w')
         self.align_var = tk.StringVar(value=DEFAULT_ALIGN_MODEL)
@@ -228,6 +233,12 @@ class App:
         device = self.device_var.get()
         threads = self.threads_var.get()
         total = len(audio_files)
+
+        # set HF_HUB_OFFLINE so whisperx uses only cached models
+        if self.offline_var.get():
+            os.environ['HF_HUB_OFFLINE'] = '1'
+        else:
+            os.environ.pop('HF_HUB_OFFLINE', None)
 
         self.root.after(0, self._log,
                         f"Processing {total} file(s) → {output_dir}")

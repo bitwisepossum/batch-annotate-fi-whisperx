@@ -25,6 +25,7 @@ class App:
         self.process = None  # current whisperx subprocess
         self.running = False
         self.cancel_requested = False
+        self.batch_start_time = None
 
         self._build_ui()
 
@@ -107,6 +108,9 @@ class App:
         self.progress_label = ttk.Label(progress_frame, text="")
         self.progress_label.pack(side='right', padx=(8, 0))
 
+        self.elapsed_label = ttk.Label(progress_frame, text="")
+        self.elapsed_label.pack(side='right', padx=(8, 0))
+
     # --- file pickers ---
 
     def _browse_file(self):
@@ -186,6 +190,10 @@ class App:
         self.log.delete('1.0', 'end')
         self.log.configure(state='disabled')
 
+        # start elapsed timer
+        self.batch_start_time = time.time()
+        self._tick()
+
         # run in background thread
         thread = threading.Thread(
             target=self._run_batch,
@@ -241,6 +249,10 @@ class App:
             # update progress bar
             self.root.after(0, self._update_progress, idx - 1, total)
 
+            # pulse progress bar while whisperx is working
+            self.root.after(0, lambda: self.progress_bar.configure(mode='indeterminate'))
+            self.root.after(0, self.progress_bar.start, 20)
+
             file_start = time.time()
 
             self.process = transcribe_file_stream(
@@ -255,6 +267,8 @@ class App:
                     self.root.after(0, self._log, f"  {line}")
 
             self.process.wait()
+            self.root.after(0, self.progress_bar.stop)
+            self.root.after(0, lambda: self.progress_bar.configure(mode='determinate'))
             file_time = time.time() - file_start
 
             if self.cancel_requested:
@@ -284,9 +298,25 @@ class App:
         self.progress_var.set(pct)
         self.progress_label.configure(text=f"{current}/{total} files")
 
+    # ticking elapsed timer + process alive check
+    def _tick(self):
+        if not self.running:
+            return
+        elapsed = time.time() - self.batch_start_time
+        self.elapsed_label.configure(text=format_duration(elapsed))
+
+        # check if subprocess died without producing output
+        if self.process and self.process.poll() is not None and self.process.returncode != 0:
+            self._log(f"  whisperx process exited unexpectedly (code {self.process.returncode})")
+
+        self.root.after(1000, self._tick)
+
     def _finish(self):
         self.running = False
+        self.batch_start_time = None
         self.start_btn.configure(text="Start")
+        self.progress_bar.configure(mode='determinate')
+        self.elapsed_label.configure(text="")
         self._set_controls_state('normal')
 
 

@@ -57,7 +57,8 @@ def find_audio_files(input_path):
 
 
 # build the whisperx command line
-def build_whisperx_cmd(audio_path, output_dir, model, align_model, prompt, device, threads):
+def build_whisperx_cmd(audio_path, output_dir, model, align_model, prompt, device, threads,
+                       vad_onset, vad_offset, chunk_size):
     cmd = [
         'whisperx',
         str(audio_path),
@@ -69,9 +70,9 @@ def build_whisperx_cmd(audio_path, output_dir, model, align_model, prompt, devic
         '--device', device,
         '--compute_type', 'int8',
         '--vad_method', 'silero',
-        '--vad_onset', '0.2',
-        '--vad_offset', '0.15',
-        '--chunk_size', '10',
+        '--vad_onset', str(vad_onset),
+        '--vad_offset', str(vad_offset),
+        '--chunk_size', str(chunk_size),
         '--threads', str(threads),
     ]
     if prompt:
@@ -80,16 +81,20 @@ def build_whisperx_cmd(audio_path, output_dir, model, align_model, prompt, devic
 
 
 # run whisperx on a single file, blocking
-def transcribe_file(audio_path, output_dir, model, align_model, prompt, device, threads):
-    cmd = build_whisperx_cmd(audio_path, output_dir, model, align_model, prompt, device, threads)
+def transcribe_file(audio_path, output_dir, model, align_model, prompt, device, threads,
+                    vad_onset=0.2, vad_offset=0.15, chunk_size=10):
+    cmd = build_whisperx_cmd(audio_path, output_dir, model, align_model, prompt, device, threads,
+                             vad_onset, vad_offset, chunk_size)
     result = subprocess.run(cmd)
     return result.returncode == 0
 
 
 # run whisperx on a single file, streaming output line by line
 # returns Popen object so caller can read output and cancel
-def transcribe_file_stream(audio_path, output_dir, model, align_model, prompt, device, threads):
-    cmd = build_whisperx_cmd(audio_path, output_dir, model, align_model, prompt, device, threads)
+def transcribe_file_stream(audio_path, output_dir, model, align_model, prompt, device, threads,
+                           vad_onset=0.2, vad_offset=0.15, chunk_size=10):
+    cmd = build_whisperx_cmd(audio_path, output_dir, model, align_model, prompt, device, threads,
+                             vad_onset, vad_offset, chunk_size)
     process = subprocess.Popen(
         cmd,
         stdout=subprocess.PIPE,
@@ -116,7 +121,8 @@ def get_whisperx_version():
 # save transcription settings to a text file in the output directory
 # overwrites on each run — only latest settings matter
 def save_settings_log(output_dir, model, align_model, device, threads,
-                      prompt, offline, num_files, input_path):
+                      prompt, offline, num_files, input_path,
+                      vad_onset, vad_offset, chunk_size):
     lines = [
         f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
         f"whisperx version: {get_whisperx_version()}",
@@ -128,9 +134,9 @@ def save_settings_log(output_dir, model, align_model, device, threads,
         "Compute type: int8",
         "",
         "VAD method: silero",
-        "VAD onset: 0.2",
-        "VAD offset: 0.15",
-        "Chunk size: 10",
+        f"VAD onset: {vad_onset}",
+        f"VAD offset: {vad_offset}",
+        f"Chunk size: {chunk_size}",
         "",
         f"Prompt: {prompt or '(none)'}",
         f"Offline mode: {offline}",

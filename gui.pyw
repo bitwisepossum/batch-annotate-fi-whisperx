@@ -26,6 +26,10 @@ class App:
         self.cancel_requested = False
         self.batch_start_time = None
 
+        self.vad_onset_var = tk.DoubleVar(value=0.2)
+        self.vad_offset_var = tk.DoubleVar(value=0.15)
+        self.chunk_size_var = tk.IntVar(value=10)
+
         self._build_ui()
 
     def _build_ui(self):
@@ -87,6 +91,17 @@ class App:
         self.prompt_var = tk.StringVar()
         ttk.Entry(settings_frame, textvariable=self.prompt_var
                   ).grid(row=3, column=1, columnspan=3, sticky='ew', **pad)
+
+        ttk.Label(settings_frame, text="VAD onset:").grid(row=4, column=0, sticky='w')
+        ttk.Spinbox(settings_frame, from_=0.0, to=1.0, increment=0.05, width=6,
+                    textvariable=self.vad_onset_var).grid(row=4, column=1, sticky='w', **pad)
+        ttk.Label(settings_frame, text="VAD offset:").grid(row=4, column=2, sticky='w')
+        ttk.Spinbox(settings_frame, from_=0.0, to=1.0, increment=0.05, width=6,
+                    textvariable=self.vad_offset_var).grid(row=4, column=3, sticky='w', **pad)
+
+        ttk.Label(settings_frame, text="Chunk size:").grid(row=5, column=0, sticky='w')
+        ttk.Spinbox(settings_frame, from_=1, to=30, width=6,
+                    textvariable=self.chunk_size_var).grid(row=5, column=1, sticky='w', **pad)
 
         settings_frame.columnconfigure(1, weight=1)
         settings_frame.columnconfigure(3, weight=1)
@@ -260,13 +275,17 @@ class App:
         prompt = self.prompt_var.get().strip() or None
         device = self.device_var.get()
         threads = self.threads_var.get()
+        vad_onset = self.vad_onset_var.get()
+        vad_offset = self.vad_offset_var.get()
+        chunk_size = self.chunk_size_var.get()
         total = len(audio_files)
 
         set_offline_mode(self.offline_var.get())
 
         save_settings_log(output_dir, model, align_model, device, threads,
                           prompt, self.offline_var.get(),
-                          total, Path(self.input_var.get().strip()))
+                          total, Path(self.input_var.get().strip()),
+                          vad_onset, vad_offset, chunk_size)
 
         self.root.after(0, self._log,
                         f"Processing {total} file(s) → {output_dir}")
@@ -296,7 +315,8 @@ class App:
 
             self.process = transcribe_file_stream(
                 audio_file, output_dir, model, align_model,
-                prompt, device, threads
+                prompt, device, threads,
+                vad_onset, vad_offset, chunk_size
             )
 
             # read output line by line

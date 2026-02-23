@@ -58,7 +58,7 @@ def main():
 
     save_settings_log(output_dir, args.model, args.align_model, args.device,
                        args.threads, args.prompt, args.offline,
-                       len(audio_files), args.input)
+                       len(audio_files), args.input, 0.2, 0.15, 10)
 
     console.print("\n[bold cyan]Batch WhisperX with Finnish Alignment[/bold cyan]")
     console.print(f"Whisper model: {args.model}")
@@ -82,7 +82,7 @@ def main():
         file_start = time.time()
         success = transcribe_file(
             audio_file, output_dir, args.model, args.align_model,
-            args.prompt, args.device, args.threads
+            args.prompt, args.device, args.threads, 0.2, 0.15, 10
         )
         file_time = time.time() - file_start
 

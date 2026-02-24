@@ -6,7 +6,7 @@ import subprocess
 from datetime import datetime
 from pathlib import Path
 
-AUDIO_EXTENSIONS = {'.wav', '.mp3', '.m4a', '.flac', '.ogg', '.opus'}
+AUDIO_EXTENSIONS = {'.wav', '.mp3', '.m4a', '.flac', '.ogg', '.opus', '.wma'}
 
 WHISPER_MODELS = ['large-v3', 'large-v2', 'medium', 'small', 'base', 'tiny']
 

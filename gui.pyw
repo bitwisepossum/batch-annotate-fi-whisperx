@@ -130,6 +130,9 @@ class App:
         self.progress_label = ttk.Label(progress_frame, text="")
         self.progress_label.pack(side='right', padx=(8, 0))
 
+        self.stage_label = ttk.Label(progress_frame, text="")
+        self.stage_label.pack(side='right', padx=(8, 0))
+
         self.elapsed_label = ttk.Label(progress_frame, text="")
         self.elapsed_label.pack(side='right', padx=(8, 0))
 
@@ -319,11 +322,21 @@ class App:
                 vad_onset, vad_offset, chunk_size
             )
 
+            # reset stage label for each file
+            self.root.after(0, self.stage_label.configure, {'text': ''})
+
             # read output line by line
             for line in self.process.stdout:
                 line = line.rstrip('\n')
                 if line:
                     self.root.after(0, self._log, f"  {line}")
+                    # parse whisperx stage from log output
+                    if 'Performing voice activity detection' in line:
+                        self.root.after(0, self.stage_label.configure, {'text': 'VAD'})
+                    elif 'Performing transcription' in line:
+                        self.root.after(0, self.stage_label.configure, {'text': 'Transcribing'})
+                    elif 'Performing alignment' in line:
+                        self.root.after(0, self.stage_label.configure, {'text': 'Aligning'})
 
             self.process.wait()
             self.root.after(0, self.progress_bar.stop)
@@ -375,6 +388,7 @@ class App:
         self.batch_start_time = None
         self.start_btn.configure(text="Start")
         self.progress_bar.configure(mode='determinate')
+        self.stage_label.configure(text="")
         self.elapsed_label.configure(text="")
         self._set_controls_state('normal')
 
